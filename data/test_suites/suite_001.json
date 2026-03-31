@@ -1,0 +1,18 @@
+{
+  "id": "suite_001",
+  "name": "Sample Test Suite",
+  "description": "A sample test suite",
+  "version": "1.0.0",
+  "created_at": "2026-03-31T00:00:00Z",
+  "updated_at": "2026-03-31T00:00:00Z",
+  "prompt_id": "prompt_001",
+  "test_cases": [
+    {
+      "id": "tc_001",
+      "name": "Sample Test Case",
+      "input": "Sample input",
+      "expected_output": "Expected output",
+      "tags": []
+    }
+  ]
+}

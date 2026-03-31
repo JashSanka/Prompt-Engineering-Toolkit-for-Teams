@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "templates": [
+    {
+      "id": "template_001",
+      "name": "Basic Template",
+      "description": "A basic reusable prompt template",
+      "category": "general",
+      "content": "Enter your template content here.",
+      "variables": [],
+      "tags": [],
+      "created_at": "2026-03-31T00:00:00Z"
+    }
+  ]
+}
