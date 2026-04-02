@@ -203,7 +203,7 @@ Best Version → Template Library
 * **JavaScript** – Logic & state management
 * **Fetch API** – AI API calls
 * **JSON Storage** – Data persistence
-* **Node.js (fs module)** – File handling
+* **Node.js (fs module)** – File handling and backend
 
 ---
 
