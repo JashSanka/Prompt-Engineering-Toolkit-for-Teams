@@ -82,6 +82,9 @@ This project focuses on **controlled prompt experimentation**, not model trainin
 
 ---
 
+### Composite Prompt Quality Score (CPQS)
+- CPQS = (R × w₁) + (K × w₂) + (L × w₃) + (S × w₄) + (C × w₅)
+
 ### 🔄 Data Flow
 
 ```
