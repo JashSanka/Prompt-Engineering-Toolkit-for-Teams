@@ -78,6 +78,7 @@ This project focuses on **controlled prompt experimentation**, not model trainin
 * Result Storage System
 * Evaluation & Comparison Module
 * Template Library
+* Storage for storing your favourite or liked prompts
 
 ---
 
