@@ -209,7 +209,7 @@ Best Version → Template Library
 
 ## 👥 Team
 
-* Jash Sanka
-* Abhinav Amrute
-* Pallav Dholariya
-* Yash Borkar
+* Jash Sanka - (backend)
+* Abhinav Amrute - (connection)
+* Pallav Dholariya - (UI)
+* Yash Borkar - (logic)
