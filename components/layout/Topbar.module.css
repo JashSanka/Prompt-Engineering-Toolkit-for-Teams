@@ -1,0 +1,185 @@
+.topbar {
+  height: var(--topbar-height);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(8px);
+}
+
+/* Search */
+.searchWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 360px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  font-size: 0.85rem;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.searchInput {
+  width: 100%;
+  background: var(--bg-secondary);
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+  padding: 7px 40px 7px 32px;
+  font-size: 0.84rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  outline: none;
+  transition: all 0.2s;
+}
+
+.searchInput::placeholder { color: var(--text-muted); }
+
+.searchInput:focus {
+  border-color: var(--accent-blue);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(79,110,247,0.12);
+}
+
+.searchKbd {
+  position: absolute;
+  right: 8px;
+  padding: 2px 5px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-family: inherit;
+}
+
+/* Context */
+.context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+.contextName {
+  font-size: 0.87rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.versionBadge {
+  font-size: 0.72rem !important;
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+}
+
+.actionBtn {
+  white-space: nowrap;
+}
+
+/* Save Status */
+.saveStatus {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.saving { color: var(--accent-orange); }
+.saved { color: var(--accent-green); }
+
+.spinner {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--accent-orange);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.savedDot {
+  width: 8px;
+  height: 8px;
+  background: var(--accent-green);
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Theme Toggle */
+.themeToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.themeToggle:hover { background: var(--bg-secondary); }
+
+.toggleTrack {
+  width: 32px;
+  height: 18px;
+  background: var(--border);
+  border-radius: 99px;
+  position: relative;
+  display: block;
+  transition: background 0.25s;
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.25s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.toggleThumb.dark {
+  left: 16px;
+  background: var(--accent-blue);
+}
+
+.toggleThumb.light {
+  left: 2px;
+  background: var(--accent-orange);
+}
+
+.themeIcon { font-size: 0.9rem; }
