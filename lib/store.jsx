@@ -2,6 +2,30 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { mockPrompts, mockTestSuites, mockResults, mockTemplates } from './mockData';
 
+// ── Scoring Helpers ──────────────────────────────────────────
+function keywordScore(output, expectedOutput) {
+  if (!expectedOutput) return null;
+  const keywords = expectedOutput
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 4); // only meaningful words
+
+  if (keywords.length === 0) return null;
+
+  const lowerOutput = output.toLowerCase();
+  const hits = keywords.filter(k => lowerOutput.includes(k));
+  return Math.round((hits.length / keywords.length) * 100); // returns 0–100
+}
+
+function lengthScore(output, minWords = 20, maxWords = 200) {
+  const wordCount = output.trim().split(/\s+/).length;
+  if (wordCount < minWords) return false;
+  if (wordCount > maxWords) return false;
+  return true;
+}
+// ─────────────────────────────────────────────────────────────
+
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
@@ -89,33 +113,72 @@ export function AppProvider({ children }) {
     addToast('Test case added', 'success');
   }, [addToast]);
 
-  const runExecution = useCallback((promptId, versionId, suiteId) => {
+  const runExecution = useCallback(async (promptId, versionId, suiteId) => {
     addToast('Running tests...', 'info', 1500);
-    const suite = testSuites.find(s => s.suite_id === suiteId);
-    if (!suite) return;
 
-    setTimeout(() => {
+    const suite = testSuites.find(s => s.suite_id === suiteId);
+    const prompt = prompts.find(p => p.prompt_id === promptId);
+    if (!suite || !prompt) return;
+
+    const version = prompt.versions.find(v => v.version_id === versionId);
+    if (!version) return;
+
+    const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
+
+    try {
+      const outputsPromises = suite.test_cases.map(async (tc) => {
+        const filledPrompt = version.prompt_text.replace('{{input}}', tc.input);
+        const start = Date.now();
+
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${GROQ_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: 'llama3-8b-8192',
+            messages: [{ role: 'user', content: filledPrompt }],
+            max_tokens: 512,
+            temperature: 0.7,
+          }),
+        });
+
+        const data = await response.json();
+        const output = data.choices?.[0]?.message?.content || 'Error: no response';
+        const exec_time_ms = Date.now() - start;
+        const token_count = data.usage?.completion_tokens || 0;
+
+        return {
+          test_case_id: tc.id,
+          input: tc.input,
+          output,
+          exec_time_ms,
+          token_count,
+          score: null,
+          keyword_match: keywordScore(output, tc.expected_output),
+          length_valid: lengthScore(output),
+        };
+      });
+
+      const outputs = await Promise.all(outputsPromises);
+
       const newResult = {
         result_id: `r${Date.now()}`,
         prompt_id: promptId,
         version_id: versionId,
         suite_id: suiteId,
         timestamp: new Date().toISOString(),
-        outputs: suite.test_cases.map(tc => ({
-          test_case_id: tc.id,
-          input: tc.input,
-          output: `[Simulated AI response for: "${tc.input.substring(0, 40)}..."]`,
-          exec_time_ms: 800 + Math.floor(Math.random() * 600),
-          token_count: 40 + Math.floor(Math.random() * 40),
-          score: null,
-          keyword_match: 60 + Math.floor(Math.random() * 35),
-          length_valid: true,
-        })),
+        outputs,
       };
+
       setResults(prev => [newResult, ...prev]);
       addToast('Execution complete!', 'success');
-    }, 2000);
-  }, [testSuites, addToast]);
+    } catch (err) {
+      console.error(err);
+      addToast('Execution failed. Check API key or network.', 'error');
+    }
+  }, [testSuites, prompts, addToast]);
 
   const saveAsTemplate = useCallback((prompt, versionId) => {
     const version = prompt.versions.find(v => v.version_id === versionId);
@@ -131,6 +194,76 @@ export function AppProvider({ children }) {
     setTemplates(prev => [newTemplate, ...prev]);
     addToast('Saved to Template Library!', 'success');
   }, [templates, addToast]);
+
+  const compareVersions = useCallback((promptId, versionAId, versionBId) => {
+    const versionAResults = results.filter(
+      r => r.prompt_id === promptId && r.version_id === versionAId
+    );
+    const versionBResults = results.filter(
+      r => r.prompt_id === promptId && r.version_id === versionBId
+    );
+
+    if (versionAResults.length === 0 || versionBResults.length === 0) {
+      addToast('Run both versions before comparing!', 'error');
+      return null;
+    }
+
+    // flatten all outputs for each version
+    const aOutputs = versionAResults.flatMap(r => r.outputs);
+    const bOutputs = versionBResults.flatMap(r => r.outputs);
+
+    // average score (manual 1-5)
+    const avgScore = (outputs) => {
+      const scored = outputs.filter(o => o.score !== null);
+      if (scored.length === 0) return 0;
+      return scored.reduce((sum, o) => sum + o.score, 0) / scored.length;
+    };
+
+    // average keyword match (0-100)
+    const avgKeyword = (outputs) => {
+      const matched = outputs.filter(o => o.keyword_match !== null);
+      if (matched.length === 0) return 0;
+      return matched.reduce((sum, o) => sum + o.keyword_match, 0) / matched.length;
+    };
+
+    // average output length in words
+    const avgLength = (outputs) =>
+      outputs.reduce((sum, o) => sum + o.output.trim().split(/\s+/).length, 0) / outputs.length;
+
+    // average response time
+    const avgSpeed = (outputs) =>
+      outputs.reduce((sum, o) => sum + o.exec_time_ms, 0) / outputs.length;
+
+    const aScore    = avgScore(aOutputs);
+    const bScore    = avgScore(bOutputs);
+    const aKeyword  = avgKeyword(aOutputs);
+    const bKeyword  = avgKeyword(bOutputs);
+    const aLength   = avgLength(aOutputs);
+    const bLength   = avgLength(bOutputs);
+    const aSpeed    = avgSpeed(aOutputs);
+    const bSpeed    = avgSpeed(bOutputs);
+
+    // winner = whoever has higher keyword match (most reliable automatic metric)
+    const winner = aKeyword >= bKeyword ? versionAId : versionBId;
+
+    return {
+      versionA: {
+        id: versionAId,
+        avgScore:   Math.round(aScore * 10) / 10,
+        avgKeyword: Math.round(aKeyword),
+        avgLength:  Math.round(aLength),
+        avgSpeed:   Math.round(aSpeed),
+      },
+      versionB: {
+        id: versionBId,
+        avgScore:   Math.round(bScore * 10) / 10,
+        avgKeyword: Math.round(bKeyword),
+        avgLength:  Math.round(bLength),
+        avgSpeed:   Math.round(bSpeed),
+      },
+      winner,
+    };
+  }, [results, addToast]);
 
   const scoreOutput = useCallback((resultId, outputIndex, score) => {
     setResults(prev => prev.map(r => {
@@ -158,6 +291,9 @@ export function AppProvider({ children }) {
       runExecution,
       saveAsTemplate,
       scoreOutput,
+      saveAsTemplate,
+      scoreOutput,
+      compareVersions,
     }}>
       {children}
     </AppContext.Provider>
