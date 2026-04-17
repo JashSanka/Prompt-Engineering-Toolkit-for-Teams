@@ -4,7 +4,7 @@ import { useApp } from '@/lib/store';
 import StarRating from '../ui/StarRating';
 
 export default function ExecuteEngine() {
-  const { currentPromptId, prompts, testSuites, results, runExecution, scoreOutput } = useApp();
+  const { currentPromptId, prompts, testSuites, results, runExecution, scoreOutput, isRunning } = useApp();
   
   const prompt = prompts.find(p => p.prompt_id === currentPromptId);
   const suite = testSuites.find(s => s.prompt_id === currentPromptId);
@@ -53,11 +53,23 @@ export default function ExecuteEngine() {
           </div>
           <button 
             className="btn btn-primary btn-lg" 
-            style={{ marginBottom: '2px' }}
-            disabled={!suite}
+            style={{ marginBottom: '2px', minWidth: '160px', position: 'relative' }}
+            disabled={!suite || isRunning}
             onClick={handleRun}
           >
-            ▶ Run Execution
+            {isRunning ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                <span style={{
+                  width: '14px', height: '14px',
+                  border: '2px solid rgba(255,255,255,0.3)',
+                  borderTopColor: '#fff',
+                  borderRadius: '50%',
+                  display: 'inline-block',
+                  animation: 'spin 0.7s linear infinite',
+                }} />
+                Running…
+              </span>
+            ) : '▶ Run Execution'}
           </button>
         </div>
       </div>

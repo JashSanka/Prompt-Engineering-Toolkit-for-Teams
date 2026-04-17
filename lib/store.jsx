@@ -39,6 +39,8 @@ export function AppProvider({ children }) {
   const [templates, setTemplates] = useState(mockTemplates);
   const [toasts, setToasts] = useState([]);
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saving' | 'saved'
+  const [isRunning, setIsRunning] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Apply dark mode
   useEffect(() => {
@@ -113,8 +115,98 @@ export function AppProvider({ children }) {
     addToast('Test case added', 'success');
   }, [addToast]);
 
+  const deleteTestCase = useCallback((suiteId, testCaseId) => {
+    setTestSuites(prev => prev.map(s =>
+      s.suite_id === suiteId
+        ? { ...s, test_cases: s.test_cases.filter(tc => tc.id !== testCaseId) }
+        : s
+    ));
+    addToast('Test case deleted', 'info');
+  }, [addToast]);
+
+  const editTestCase = useCallback((suiteId, testCaseId, updates) => {
+    setTestSuites(prev => prev.map(s =>
+      s.suite_id === suiteId
+        ? { ...s, test_cases: s.test_cases.map(tc => tc.id === testCaseId ? { ...tc, ...updates } : tc) }
+        : s
+    ));
+    addToast('Test case updated', 'success');
+  }, [addToast]);
+
+  const addNewPrompt = useCallback((title = 'Untitled Prompt', tags = []) => {
+    const newId = `${String(Date.now()).slice(-6)}`;
+    const newPrompt = {
+      prompt_id: newId,
+      title,
+      tags,
+      isFavorite: false,
+      versions: [{
+        version_id: 'v1',
+        prompt_text: 'Your prompt here. Use {{input}} for variable parts.',
+        created_at: new Date().toISOString(),
+      }],
+    };
+    // Create a companion empty test suite
+    const newSuite = {
+      suite_id: newId,
+      prompt_id: newId,
+      name: `${title} Suite`,
+      test_cases: [],
+    };
+    setPrompts(prev => [...prev, newPrompt]);
+    setTestSuites(prev => [...prev, newSuite]);
+    setCurrentPromptId(newId);
+    addToast(`"${title}" created!`, 'success');
+    return newId;
+  }, [addToast]);
+
+  const deletePrompt = useCallback((promptId) => {
+    setPrompts(prev => {
+      const remaining = prev.filter(p => p.prompt_id !== promptId);
+      return remaining;
+    });
+    setTestSuites(prev => prev.filter(s => s.prompt_id !== promptId));
+    setResults(prev => prev.filter(r => r.prompt_id !== promptId));
+    setCurrentPromptId(prev => prev === promptId ? '001' : prev);
+    addToast('Prompt deleted', 'info');
+  }, [addToast]);
+
+  const useTemplate = useCallback((template) => {
+    const newId = `${String(Date.now()).slice(-6)}`;
+    const newPrompt = {
+      prompt_id: newId,
+      title: template.title,
+      tags: [template.category],
+      isFavorite: false,
+      versions: [{
+        version_id: 'v1',
+        prompt_text: template.prompt_text,
+        created_at: new Date().toISOString(),
+      }],
+    };
+    const newSuite = {
+      suite_id: newId,
+      prompt_id: newId,
+      name: `${template.title} Suite`,
+      test_cases: [],
+    };
+    setPrompts(prev => [...prev, newPrompt]);
+    setTestSuites(prev => [...prev, newSuite]);
+    setTemplates(prev => prev.map(t =>
+      t.template_id === template.template_id ? { ...t, usage_count: t.usage_count + 1 } : t
+    ));
+    setCurrentPromptId(newId);
+    setActiveSection('prompts');
+    addToast(`"${template.title}" opened in editor!`, 'success');
+  }, [addToast]);
+
   const runExecution = useCallback(async (promptId, versionId, suiteId) => {
-    addToast('Running tests...', 'info', 1500);
+    const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
+
+    if (!GROQ_API_KEY) {
+      addToast('❌ Groq API key missing. Add VITE_GROQ_API_KEY to your .env file.', 'error', 5000);
+      return;
+    }
 
     const suite = testSuites.find(s => s.suite_id === suiteId);
     const prompt = prompts.find(p => p.prompt_id === promptId);
@@ -123,7 +215,8 @@ export function AppProvider({ children }) {
     const version = prompt.versions.find(v => v.version_id === versionId);
     if (!version) return;
 
-    const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
+    setIsRunning(true);
+    addToast('Running tests...', 'info', 1500);
 
     try {
       const outputsPromises = suite.test_cases.map(async (tc) => {
@@ -137,12 +230,17 @@ export function AppProvider({ children }) {
             'Authorization': `Bearer ${GROQ_API_KEY}`,
           },
           body: JSON.stringify({
-            model: 'llama3-8b-8192',
+            model: 'llama-3.1-8b-instant',
             messages: [{ role: 'user', content: filledPrompt }],
             max_tokens: 512,
             temperature: 0.7,
           }),
         });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData?.error?.message || `HTTP ${response.status}`);
+        }
 
         const data = await response.json();
         const output = data.choices?.[0]?.message?.content || 'Error: no response';
@@ -173,10 +271,12 @@ export function AppProvider({ children }) {
       };
 
       setResults(prev => [newResult, ...prev]);
-      addToast('Execution complete!', 'success');
+      addToast('✅ Execution complete!', 'success');
     } catch (err) {
       console.error(err);
-      addToast('Execution failed. Check API key or network.', 'error');
+      addToast(`❌ Execution failed: ${err.message}`, 'error', 5000);
+    } finally {
+      setIsRunning(false);
     }
   }, [testSuites, prompts, addToast]);
 
@@ -282,15 +382,20 @@ export function AppProvider({ children }) {
       prompts, testSuites, results, templates,
       toasts,
       saveStatus, setSaveStatus,
+      isRunning,
+      searchQuery, setSearchQuery,
       addToast,
       getCurrentPrompt,
       savePromptVersion,
       rollbackVersion,
       toggleFavorite,
       addTestCase,
+      deleteTestCase,
+      editTestCase,
+      addNewPrompt,
+      deletePrompt,
+      useTemplate,
       runExecution,
-      saveAsTemplate,
-      scoreOutput,
       saveAsTemplate,
       scoreOutput,
       compareVersions,
