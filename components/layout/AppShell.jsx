@@ -6,6 +6,7 @@ import Dashboard from '../sections/Dashboard';
 import PromptEditor from '../sections/PromptEditor';
 import TestSuite from '../sections/TestSuite';
 import ExecuteEngine from '../sections/ExecuteEngine';
+import Results from '../sections/Results';
 import Compare from '../sections/Compare';
 import TemplateLibrary from '../sections/TemplateLibrary';
 import Favorites from '../sections/Favorites';
@@ -20,6 +21,7 @@ export default function AppShell() {
       case 'prompts': return <PromptEditor />;
       case 'testsuites': return <TestSuite />;
       case 'execute': return <ExecuteEngine />;
+      case 'results': return <Results />;
       case 'compare': return <Compare />;
       case 'templates': return <TemplateLibrary />;
       case 'favorites': return <Favorites />;

@@ -22,8 +22,10 @@ export default function Compare() {
   if (resultA && resultB && resultA.outputs.length > 0 && resultB.outputs.length > 0) {
     const scoreA = resultA.outputs.reduce((a, b) => a + (b.score || 0), 0) / resultA.outputs.length;
     const scoreB = resultB.outputs.reduce((a, b) => a + (b.score || 0), 0) / resultB.outputs.length;
-    const matchA = resultA.outputs.reduce((a, b) => a + b.keyword_match, 0) / resultA.outputs.length;
-    const matchB = resultB.outputs.reduce((a, b) => a + b.keyword_match, 0) / resultB.outputs.length;
+    const matchedA = resultA.outputs.filter(o => o.keyword_match !== null);
+    const matchedB = resultB.outputs.filter(o => o.keyword_match !== null);
+    const matchA = matchedA.length > 0 ? matchedA.reduce((a, b) => a + b.keyword_match, 0) / matchedA.length : 0;
+    const matchB = matchedB.length > 0 ? matchedB.reduce((a, b) => a + b.keyword_match, 0) / matchedB.length : 0;
 
     if (scoreA > scoreB) {
       winner = versionA;

@@ -28,7 +28,7 @@ function ActivityItem({ icon, text, time, color }) {
 }
 
 export default function Dashboard() {
-  const { prompts, testSuites, results, templates, setActiveSection } = useApp();
+  const { prompts, testSuites, results, templates, setActiveSection, addNewPrompt } = useApp();
 
   const stats = [
     { icon: '✏️', label: 'Total Prompts', value: prompts.length, change: `+${prompts.length} this week`, color: 'var(--accent-blue)' },
@@ -60,7 +60,7 @@ export default function Dashboard() {
           <button className="btn btn-secondary" onClick={() => setActiveSection('templates')}>
             📚 Browse Templates
           </button>
-          <button className="btn btn-primary" onClick={() => setActiveSection('prompts')}>
+          <button className="btn btn-primary" onClick={() => { addNewPrompt('Untitled Prompt'); setActiveSection('prompts'); }}>
             ✏️ New Prompt
           </button>
         </div>

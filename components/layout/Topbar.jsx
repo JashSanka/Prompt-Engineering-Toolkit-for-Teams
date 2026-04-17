@@ -3,23 +3,28 @@ import { useApp } from '@/lib/store';
 import styles from './Topbar.module.css';
 
 export default function Topbar() {
-  const { getCurrentPrompt, saveStatus, darkMode, setDarkMode, setActiveSection, savePromptVersion, addToast } = useApp();
+  const { getCurrentPrompt, saveStatus, darkMode, setDarkMode, setActiveSection, savePromptVersion, addToast, searchQuery, setSearchQuery } = useApp();
   const prompt = getCurrentPrompt();
   const currentVersion = prompt?.versions[prompt.versions.length - 1];
 
   const handleSave = () => {
     if (prompt && currentVersion) {
       savePromptVersion(prompt.prompt_id, currentVersion.prompt_text);
+      addToast('Snapshot saved as new version', 'success');
     }
   };
 
   const handleRun = () => {
     setActiveSection('execute');
-    addToast('Navigated to Execute', 'info');
   };
 
   const handleCompare = () => {
     setActiveSection('compare');
+  };
+
+  const handleSearch = (e) => {
+    setSearchQuery(e.target.value);
+    if (e.target.value.trim()) setActiveSection('prompts');
   };
 
   return (
@@ -31,6 +36,8 @@ export default function Topbar() {
           className={styles.searchInput}
           type="text"
           placeholder="Search prompts, templates, test suites..."
+          value={searchQuery}
+          onChange={handleSearch}
         />
         <kbd className={styles.searchKbd}>⌘K</kbd>
       </div>
