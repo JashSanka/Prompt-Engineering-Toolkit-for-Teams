@@ -29,7 +29,7 @@ function lengthScore(output, minWords = 20, maxWords = 200) {
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  const [activeSection, setActiveSection] = useState('dashboard');
+  const [activeSection, setActiveSection] = useState('prompts');
   const [darkMode, setDarkMode] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentPromptId, setCurrentPromptId] = useState('001');
@@ -61,12 +61,20 @@ export function AppProvider({ children }) {
   }, [prompts, currentPromptId]);
 
   const savePromptVersion = useCallback((promptId, newText) => {
+    const prompt = prompts.find(p => p.prompt_id === promptId);
+    if (!prompt) return;
+
+    const latestVersion = prompt.versions[prompt.versions.length - 1];
+    if (latestVersion.prompt_text.trim() === newText.trim()) {
+      addToast('No changes detected. Version is up to date.', 'info');
+      return;
+    }
+
     setSaveStatus('saving');
     setTimeout(() => {
       setPrompts(prev => prev.map(p => {
         if (p.prompt_id !== promptId) return p;
-        const latestVersion = p.versions[p.versions.length - 1];
-        const nextNum = parseInt(latestVersion.version_id.replace('v', '')) + 1;
+        const nextNum = p.versions.length + 1;
         return {
           ...p,
           versions: [...p.versions, {
@@ -79,18 +87,18 @@ export function AppProvider({ children }) {
       setSaveStatus('saved');
       addToast('Version saved successfully', 'success');
     }, 800);
-  }, [addToast]);
+  }, [prompts, addToast]);
 
   const rollbackVersion = useCallback((promptId, versionId) => {
     setPrompts(prev => prev.map(p => {
       if (p.prompt_id !== promptId) return p;
       const target = p.versions.find(v => v.version_id === versionId);
       if (!target) return p;
-      const latestNum = parseInt(p.versions[p.versions.length - 1].version_id.replace('v', ''));
+      const latestNum = p.versions.length + 1;
       return {
         ...p,
         versions: [...p.versions, {
-          version_id: `v${latestNum + 1}`,
+          version_id: `v${latestNum}`,
           prompt_text: target.prompt_text,
           created_at: new Date().toISOString(),
           rolledBackFrom: versionId,
@@ -98,6 +106,21 @@ export function AppProvider({ children }) {
       };
     }));
     addToast(`Rolled back to ${versionId} — new version created`, 'info');
+  }, [addToast]);
+
+  const deleteVersion = useCallback((promptId, versionId) => {
+    setPrompts(prev => prev.map(p => {
+      if (p.prompt_id !== promptId) return p;
+      if (p.versions.length <= 1) {
+        addToast('Cannot delete the last remaining version.', 'error');
+        return p;
+      }
+      return {
+        ...p,
+        versions: p.versions.filter(v => v.version_id !== versionId)
+      };
+    }));
+    addToast(`Version ${versionId} deleted successfully.`, 'success');
   }, [addToast]);
 
   const toggleFavorite = useCallback((promptId) => {
@@ -394,6 +417,7 @@ export function AppProvider({ children }) {
       editTestCase,
       addNewPrompt,
       deletePrompt,
+      deleteVersion,
       useTemplate,
       runExecution,
       saveAsTemplate,

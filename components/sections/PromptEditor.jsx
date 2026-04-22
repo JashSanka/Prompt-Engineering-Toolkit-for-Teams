@@ -11,7 +11,7 @@ export default function PromptEditor() {
     addToast, saveStatus, toggleFavorite,
     currentPromptId, setCurrentPromptId,
     addNewPrompt, deletePrompt, saveAsTemplate,
-    searchQuery,
+    searchQuery, deleteVersion,
   } = useApp();
 
   const prompt = getCurrentPrompt();
@@ -22,6 +22,7 @@ export default function PromptEditor() {
   const [selectedFramework, setSelectedFramework] = useState(null);
   const [frameworkVals, setFrameworkVals] = useState({});
   const [rollbackModal, setRollbackModal] = useState({ show: false, version: null });
+  const [previewModal, setPreviewModal] = useState({ show: false, version: null });
   const [newPromptModal, setNewPromptModal] = useState(false);
   const [newPromptTitle, setNewPromptTitle] = useState('');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -36,7 +37,7 @@ export default function PromptEditor() {
       setText(prompt.versions[prompt.versions.length - 1].prompt_text);
       setQuickTestOutput(''); // clear output when switching prompts
     }
-  }, [prompt?.prompt_id]);
+  }, [prompt?.prompt_id, prompt?.versions.length]);
 
   if (!prompt) return null;
 
@@ -65,6 +66,7 @@ export default function PromptEditor() {
   const executeRollback = () => {
     rollbackVersion(prompt.prompt_id, rollbackModal.version);
     setRollbackModal({ show: false, version: null });
+    setActiveTab('editor'); // Instantly hop back to edit the restored version!
   };
 
   const handleSaveVersion = () => {
@@ -268,44 +270,78 @@ export default function PromptEditor() {
           <div className={`${styles.versionPanel} card animate-fade-in`}>
             <div className="section-header">
               <div className="section-title">Version History</div>
+              <div className="section-subtitle" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                {prompt.versions.length} version{prompt.versions.length !== 1 ? 's' : ''}
+              </div>
             </div>
 
             <div className="version-timeline">
-              {[...prompt.versions].reverse().map(v => (
-                <div key={v.version_id} className={`version-item ${v.version_id === currentVersion.version_id ? 'current' : ''}`}>
-                  <div>
-                    <div className="version-label">
-                      {v.version_id} {v.version_id === currentVersion.version_id && '(Current)'}
-                      {v.rolledBackFrom && <span className="badge badge-gray ml-2">from {v.rolledBackFrom}</span>}
+              {[...prompt.versions].reverse().map(v => {
+                const isCurrent = v.version_id === currentVersion.version_id;
+                return (
+                  <div key={v.version_id} className={`version-item ${isCurrent ? 'current' : ''}`}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="version-label">
+                        {v.version_id}
+                        {isCurrent && (
+                          <span style={{ marginLeft: 6, fontSize: '0.7rem', background: 'var(--accent-primary)', color: '#fff', borderRadius: 4, padding: '1px 6px' }}>CURRENT</span>
+                        )}
+                        {v.rolledBackFrom && (
+                          <span className="badge badge-gray" style={{ marginLeft: 6 }}>↩ from {v.rolledBackFrom}</span>
+                        )}
+                      </div>
+                      <div className="version-date">{new Date(v.created_at).toLocaleString()}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>
+                        {v.prompt_text.substring(0, 70)}…
+                      </div>
                     </div>
-                    <div className="version-date">{new Date(v.created_at).toLocaleString()}</div>
-                    {/* Preview snippet */}
-                    <div className="text-muted text-xs mt-1" style={{ fontFamily: 'monospace', maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {v.prompt_text.substring(0, 60)}…
+
+                    {/* Action buttons — always show View; show rest only for non-current */}
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
+                      {/* View */}
+                      <button
+                        className="btn btn-ghost btn-icon"
+                        onClick={() => setPreviewModal({ show: true, version: v.version_id })}
+                        title={`Preview ${v.version_id}`}
+                      >
+                        👁️
+                      </button>
+
+                      {!isCurrent && (
+                        <>
+                          {/* Load into editor */}
+                          <button
+                            className="btn btn-ghost btn-icon"
+                            onClick={() => { setText(v.prompt_text); setActiveTab('editor'); addToast(`Loaded ${v.version_id} into editor`, 'info'); }}
+                            title="Load into editor"
+                          >
+                            📋
+                          </button>
+
+                          {/* Rollback */}
+                          <button
+                            className="btn btn-ghost btn-icon"
+                            onClick={() => setRollbackModal({ show: true, version: v.version_id })}
+                            title={`Rollback to ${v.version_id}`}
+                          >
+                            ↩️
+                          </button>
+
+                          {/* Delete version */}
+                          <button
+                            className="btn btn-ghost btn-icon"
+                            style={{ color: 'var(--accent-red, #ef4444)' }}
+                            onClick={() => deleteVersion(prompt.prompt_id, v.version_id)}
+                            title={`Delete ${v.version_id}`}
+                          >
+                            🗑️
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
-                  <div className="flex gap-1 flex-col items-end">
-                    {v.version_id !== currentVersion.version_id && (
-                      <>
-                        <button
-                          className="btn btn-ghost btn-icon"
-                          onClick={() => { setText(v.prompt_text); addToast(`Loaded ${v.version_id} into editor`, 'info'); }}
-                          title="Load into editor"
-                        >
-                          📋
-                        </button>
-                        <button
-                          className="btn btn-ghost btn-icon"
-                          onClick={() => setRollbackModal({ show: true, version: v.version_id })}
-                          title="Rollback to this version"
-                        >
-                          ↩️
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -377,7 +413,6 @@ export default function PromptEditor() {
         )}
       </div>
 
-      {/* Rollback Modal */}
       <Modal
         isOpen={rollbackModal.show}
         onClose={() => setRollbackModal({ show: false, version: null })}
@@ -389,10 +424,76 @@ export default function PromptEditor() {
           </>
         }
       >
-        <p>Are you sure you want to rollback to <strong>{rollbackModal.version}</strong>?</p>
-        <p className="text-muted mt-2 text-sm">
-          This will not delete your current work. It will create a new version containing the content from {rollbackModal.version}.
-        </p>
+        <p style={{ marginBottom: 12 }}>You are restoring the content from <strong>{rollbackModal.version}</strong>. A new version will be created — your current work is safe.</p>
+        {rollbackModal.version && (() => {
+          const v = prompt.versions.find(x => x.version_id === rollbackModal.version);
+          return v ? (
+            <div style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '12px 14px',
+              fontFamily: 'monospace',
+              fontSize: '0.8rem',
+              color: 'var(--text-primary)',
+              whiteSpace: 'pre-wrap',
+              maxHeight: 220,
+              overflowY: 'auto',
+              lineHeight: 1.6,
+            }}>{v.prompt_text}</div>
+          ) : null;
+        })()
+        }
+      </Modal>
+
+      {/* Preview Version Modal */}
+      <Modal
+        isOpen={previewModal.show}
+        onClose={() => setPreviewModal({ show: false, version: null })}
+        title={`👁️ Preview — ${previewModal.version}`}
+        footer={
+          <div style={{ display: 'flex', gap: 8 }}>
+            {previewModal.version && previewModal.version !== currentVersion.version_id && (
+              <>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    const v = prompt.versions.find(x => x.version_id === previewModal.version);
+                    if (v) { setText(v.prompt_text); setActiveTab('editor'); addToast(`Loaded ${previewModal.version} into editor`, 'info'); }
+                    setPreviewModal({ show: false, version: null });
+                  }}
+                >📋 Load into Editor</button>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setRollbackModal({ show: true, version: previewModal.version });
+                    setPreviewModal({ show: false, version: null });
+                  }}
+                >↩️ Rollback to This</button>
+              </>
+            )}
+            <button className="btn btn-ghost" onClick={() => setPreviewModal({ show: false, version: null })}>Close</button>
+          </div>
+        }
+      >
+        {previewModal.version && (() => {
+          const v = prompt.versions.find(x => x.version_id === previewModal.version);
+          return v ? (
+            <div style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '16px',
+              fontFamily: 'monospace',
+              fontSize: '0.85rem',
+              color: 'var(--text-primary)',
+              whiteSpace: 'pre-wrap',
+              maxHeight: 440,
+              overflowY: 'auto',
+              lineHeight: 1.7,
+            }}>{v.prompt_text}</div>
+          ) : null;
+        })()}
       </Modal>
 
       {/* New Prompt Modal */}
