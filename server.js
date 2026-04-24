@@ -181,7 +181,7 @@ if (!require('fs').existsSync(distPath)) {
 }
 console.log('[server] Detected distPath:', distPath);
 
-// Manual Asset Handler (Direct Stream Fix)
+// Manual Asset Handler (Foolproof ReadFileSync Fix)
 app.get('/assets/:filename', (req, res) => {
   try {
     const fs = require('fs');
@@ -192,9 +192,8 @@ app.get('/assets/:filename', (req, res) => {
       const mimeTypes = { '.js': 'application/javascript', '.css': 'text/css' };
       if (mimeTypes[ext]) res.setHeader('Content-Type', mimeTypes[ext]);
       
-      const stream = fs.createReadStream(filePath);
-      stream.on('error', (e) => res.status(500).send('Stream Error: ' + e.message));
-      return stream.pipe(res);
+      const content = fs.readFileSync(filePath);
+      return res.send(content);
     }
     res.status(404).send('Asset not found');
   } catch (err) {
