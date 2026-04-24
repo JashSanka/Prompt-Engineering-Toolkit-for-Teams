@@ -15,6 +15,7 @@
 
 const express = require('express');
 const cors    = require('cors');
+const path    = require('path');
 const { appendResult, getResultsByPromptId } = require('./lib/resultsHandler');
 
 const app  = express();
@@ -162,6 +163,10 @@ app.post('/execute', async (req, res) => {
   }
 });
 
+// ─── Static Files (Frontend) ──────────────────────────────────────────────────
+// Serve static files from the Vite build directory
+app.use(express.static(path.join(__dirname, 'dist')));
+
 // ─── Health check ─────────────────────────────────────────────────────────────
 
 app.get('/health', (_req, res) => {
@@ -170,6 +175,11 @@ app.get('/health', (_req, res) => {
     port:   PORT,
     mode:   process.env.GROQ_API_KEY ? 'real-ai' : 'mock-ai',
   });
+});
+
+// Handle React routing, return all requests to React app
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
