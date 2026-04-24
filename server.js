@@ -170,11 +170,22 @@ app.use(express.static(distPath));
 // ─── Health check ─────────────────────────────────────────────────────────────
 
 app.get('/health', (_req, res) => {
+  let files = [];
+  try {
+    if (require('fs').existsSync(distPath)) {
+      files = require('fs').readdirSync(distPath);
+      if (files.includes('assets')) {
+        files = [...files, ...require('fs').readdirSync(path.join(distPath, 'assets')).map(f => 'assets/' + f)];
+      }
+    }
+  } catch (e) { files = [e.message]; }
+
   res.json({
     status: 'ok',
-    port:   PORT,
     mode:   process.env.GROQ_API_KEY ? 'real-ai' : 'mock-ai',
-    distExists: require('fs').existsSync(distPath)
+    distPath: distPath,
+    distExists: require('fs').existsSync(distPath),
+    filesFound: files
   });
 });
 
