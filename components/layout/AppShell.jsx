@@ -4,6 +4,8 @@ import Topbar from './Topbar';
 import PromptEditor from '../sections/PromptEditor';
 import Compare from '../sections/Compare';
 import TemplateLibrary from '../sections/TemplateLibrary';
+import ResultsTable from '../sections/ResultsTable';
+import Dashboard from '../sections/Dashboard';
 import ToastContainer from '../ui/Toast';
 
 export default function AppShell() {
@@ -11,10 +13,12 @@ export default function AppShell() {
 
   const renderSection = () => {
     switch (activeSection) {
-      case 'prompts': return <PromptEditor />;
-      case 'compare': return <Compare />;
+      case 'dashboard': return <Dashboard />;
+      case 'prompts':   return <PromptEditor />;
+      case 'compare':  return <Compare />;
       case 'templates': return <TemplateLibrary />;
-      default: return <PromptEditor />;
+      case 'results':  return <ResultsTable />;
+      default:         return <Dashboard />;
     }
   };
 

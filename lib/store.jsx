@@ -29,7 +29,7 @@ function lengthScore(output, minWords = 20, maxWords = 200) {
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  const [activeSection, setActiveSection] = useState('prompts');
+  const [activeSection, setActiveSection] = useState('dashboard');
   const [darkMode, setDarkMode] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentPromptId, setCurrentPromptId] = useState('001');
@@ -270,13 +270,42 @@ export function AppProvider({ children }) {
         const exec_time_ms = Date.now() - start;
         const token_count = data.usage?.completion_tokens || 0;
 
+        let aiScore = null;
+        try {
+          const evalPrompt = `You are an expert evaluator. Score the relevance of the following output to the input on a scale of 1 to 5. Return ONLY the integer score (1, 2, 3, 4, or 5). No other text.\n\nInput: ${tc.input}\nOutput: ${output}${tc.expected_output ? `\nExpected Output: ${tc.expected_output}` : ''}`;
+          
+          const evalResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${GROQ_API_KEY}`,
+            },
+            body: JSON.stringify({
+              model: 'llama-3.1-8b-instant',
+              messages: [{ role: 'user', content: evalPrompt }],
+              max_tokens: 10,
+              temperature: 0.1,
+            }),
+          });
+          if (evalResponse.ok) {
+            const evalData = await evalResponse.json();
+            const scoreStr = evalData.choices?.[0]?.message?.content?.trim();
+            const parsedScore = parseInt(scoreStr, 10);
+            if (!isNaN(parsedScore) && parsedScore >= 1 && parsedScore <= 5) {
+              aiScore = parsedScore;
+            }
+          }
+        } catch (e) {
+          console.warn("AI scoring failed", e);
+        }
+
         return {
           test_case_id: tc.id,
           input: tc.input,
           output,
           exec_time_ms,
           token_count,
-          score: null,
+          score: aiScore,
           keyword_match: keywordScore(output, tc.expected_output),
           length_valid: lengthScore(output),
         };
@@ -396,6 +425,24 @@ export function AppProvider({ children }) {
     }));
   }, []);
 
+  /**
+   * updateCpqsRating — update R, S, or C on a specific output.
+   * field: 'R' | 'S' | 'C'
+   * Maps to: score (R), structureScore (S), coherenceScore (C)
+   */
+  const updateCpqsRating = useCallback((resultId, outputIndex, field, value) => {
+    const fieldMap = { R: 'score', S: 'structureScore', C: 'coherenceScore' };
+    const key = fieldMap[field];
+    if (!key) return;
+    setResults(prev => prev.map(r => {
+      if (r.result_id !== resultId) return r;
+      const outputs = r.outputs.map((o, i) =>
+        i === outputIndex ? { ...o, [key]: value } : o
+      );
+      return { ...r, outputs };
+    }));
+  }, []);
+
   return (
     <AppContext.Provider value={{
       activeSection, setActiveSection,
@@ -422,6 +469,7 @@ export function AppProvider({ children }) {
       runExecution,
       saveAsTemplate,
       scoreOutput,
+      updateCpqsRating,
       compareVersions,
     }}>
       {children}

@@ -14,12 +14,20 @@ export default function Topbar() {
     }
   };
 
-  const handleRun = () => {
-    setActiveSection('execute');
+  const handleDashboard = () => {
+    setActiveSection('dashboard');
   };
 
   const handleCompare = () => {
     setActiveSection('compare');
+  };
+
+  const handleTemplates = () => {
+    setActiveSection('templates');
+  };
+
+  const handleResults = () => {
+    setActiveSection('results');
   };
 
   const handleSearch = (e) => {
@@ -65,14 +73,20 @@ export default function Topbar() {
         <div className={styles.divider} />
 
         {/* Action Buttons */}
+        <button className={`btn btn-secondary btn-sm ${styles.actionBtn}`} onClick={handleDashboard}>
+          🏠 Dashboard
+        </button>
         <button className={`btn btn-ghost btn-sm ${styles.actionBtn}`} onClick={handleSave}>
           💾 Save
         </button>
-        <button className={`btn btn-primary btn-sm ${styles.actionBtn}`} onClick={handleRun}>
-          ▶ Run
-        </button>
         <button className={`btn btn-secondary btn-sm ${styles.actionBtn}`} onClick={handleCompare}>
           🔀 Compare
+        </button>
+        <button className={`btn btn-secondary btn-sm ${styles.actionBtn}`} onClick={handleTemplates}>
+          📚 Templates
+        </button>
+        <button className={`btn btn-secondary btn-sm ${styles.actionBtn}`} onClick={handleResults}>
+          📊 Results
         </button>
 
         <div className={styles.divider} />
