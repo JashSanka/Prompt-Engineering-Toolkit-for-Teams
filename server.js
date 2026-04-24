@@ -26,7 +26,7 @@ const PORT = process.env.PORT || 3001;
 // Allow requests from the Vite dev server and any Render-deployed frontend
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:5173', 'http://localhost:3000'];
+  : ['http://localhost:5173', 'http://localhost:3000', 'https://prompt-toolkit-frontend.onrender.com'];
 
 app.use(cors({
   origin: (origin, cb) => {
