@@ -164,8 +164,8 @@ app.post('/execute', async (req, res) => {
 });
 
 // ─── Static Files (Frontend) ──────────────────────────────────────────────────
-// Serve static files from the Vite build directory
-app.use(express.static(path.join(__dirname, 'dist')));
+const distPath = path.resolve(__dirname, 'dist');
+app.use(express.static(distPath));
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 
@@ -174,12 +174,18 @@ app.get('/health', (_req, res) => {
     status: 'ok',
     port:   PORT,
     mode:   process.env.GROQ_API_KEY ? 'real-ai' : 'mock-ai',
+    distExists: require('fs').existsSync(distPath)
   });
 });
 
 // Handle React routing, return all requests to React app
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  const indexPath = path.join(distPath, 'index.html');
+  if (require('fs').existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send('Frontend build (dist/index.html) not found. Please check your build logs.');
+  }
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
