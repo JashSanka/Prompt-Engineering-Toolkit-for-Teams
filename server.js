@@ -181,8 +181,18 @@ if (!require('fs').existsSync(distPath)) {
 }
 console.log('[server] Detected distPath:', distPath);
 
-// Serve assets with a long cache time
-app.use('/assets', express.static(path.join(distPath, 'assets'), { maxAge: '1y' }));
+// Manual Asset Handler (Nuclear Fix for MIME types and 500 errors)
+app.get('/assets/:filename', (req, res) => {
+  const filePath = path.join(distPath, 'assets', req.params.filename);
+  const fs = require('fs');
+  if (fs.existsSync(filePath)) {
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = { '.js': 'application/javascript', '.css': 'text/css' };
+    res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+    return res.sendFile(filePath);
+  }
+  res.status(404).end();
+});
 app.use(express.static(distPath));
 
 // ─── Health check ─────────────────────────────────────────────────────────────
