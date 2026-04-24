@@ -32,6 +32,13 @@ export default function PromptEditor() {
   const [quickTestOutput, setQuickTestOutput] = useState('');
   const [quickTestLoading, setQuickTestLoading] = useState(false);
 
+  // AI Enhancement state
+  const [enhancing, setEnhancing] = useState(false);
+  const [aiConverting, setAiConverting] = useState(false);
+  const [suggestions, setSuggestions] = useState(null); // { critique, suggestedPrompt }
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionPreviewOpen, setSuggestionPreviewOpen] = useState(false);
+
   useEffect(() => {
     if (prompt) {
       setText(prompt.versions[prompt.versions.length - 1].prompt_text);
@@ -56,6 +63,14 @@ export default function PromptEditor() {
   const applyFramework = () => {
     if (!selectedFramework) return;
     const fw = frameworks[selectedFramework];
+
+    // Check if the user has filled in at least one field
+    const hasAnyInput = fw.fields.some(f => frameworkVals[f.key]?.trim());
+    if (!hasAnyInput) {
+      addToast('✏️ Please fill in at least one field so we know what your prompt should be about.', 'error', 4000);
+      return;
+    }
+
     setText(fw.template(frameworkVals));
     setShowFrameworks(false);
     setSelectedFramework(null);
@@ -88,6 +103,82 @@ export default function PromptEditor() {
 
   const handleSaveAsTemplate = () => {
     saveAsTemplate(prompt, currentVersion.version_id);
+  };
+
+  // ─── Shared Groq caller ──────────────────────────────────────────────────────
+  const groqCall = async (messages, maxTokens = 1024, temperature = 0.7) => {
+    const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
+    if (!GROQ_API_KEY) throw new Error('VITE_GROQ_API_KEY missing from .env');
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
+      body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages, max_tokens: maxTokens, temperature }),
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e?.error?.message || `HTTP ${res.status}`); }
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content?.trim() || '';
+  };
+
+  // ─── Feature 1: Enhance Prompt ───────────────────────────────────────────────
+  const handleEnhance = async () => {
+    if (!text.trim()) { addToast('Write a prompt first.', 'error'); return; }
+    setEnhancing(true);
+    try {
+      const result = await groqCall([
+        { role: 'system', content: 'You are an expert prompt engineer. Rewrite the given prompt to be more detailed, precise and effective. Add role, context, output format requirements and constraints where missing. Preserve any {{input}} placeholders exactly. Return ONLY the improved prompt text — no explanations, no preamble.' },
+        { role: 'user', content: text },
+      ], 1024, 0.5);
+      setText(result);
+      addToast('✨ Prompt enhanced! Review and save if happy.', 'success', 4000);
+    } catch (err) {
+      addToast(`❌ Enhance failed: ${err.message}`, 'error', 5000);
+    } finally {
+      setEnhancing(false);
+    }
+  };
+
+  // ─── Feature 2: AI Framework Convert ────────────────────────────────────────
+  const handleAiConvert = async () => {
+    if (!selectedFramework) return;
+    if (!text.trim()) { addToast('Write a prompt first so AI can convert it.', 'error'); return; }
+    const fw = frameworks[selectedFramework];
+    setAiConverting(true);
+    try {
+      const fieldList = fw.fields.map(f => f.label).join(', ');
+      const result = await groqCall([
+        { role: 'system', content: `You are an expert prompt engineer. Convert the given prompt into the ${fw.name} (${fw.fullName}) framework format. The framework uses these sections: ${fieldList}. Return ONLY the final formatted prompt text using that structure. Preserve any {{input}} placeholders exactly. No extra commentary.` },
+        { role: 'user', content: text },
+      ], 1024, 0.4);
+      setText(result);
+      setShowFrameworks(false);
+      setSelectedFramework(null);
+      setFrameworkVals({});
+      addToast(`🧩 Converted to ${fw.name} framework! Review and save.`, 'success', 4000);
+    } catch (err) {
+      addToast(`❌ AI Convert failed: ${err.message}`, 'error', 5000);
+    } finally {
+      setAiConverting(false);
+    }
+  };
+
+  // ─── Feature 3: AI Suggestions ───────────────────────────────────────────────
+  const handleGetSuggestions = async () => {
+    if (!text.trim()) { addToast('Write a prompt first.', 'error'); return; }
+    setSuggestionsLoading(true);
+    setSuggestions(null);
+    try {
+      const raw = await groqCall([
+        { role: 'system', content: 'You are an expert prompt engineer. Analyse the given prompt and respond with ONLY valid JSON (no markdown, no code fences) in this exact shape: {"critique":"Bullet-pointed list of what is missing or weak, one issue per line starting with \u2022","suggestedPrompt":"Your full improved version of the prompt here"}' },
+        { role: 'user', content: text },
+      ], 1200, 0.5);
+      const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+      const parsed = JSON.parse(cleaned);
+      setSuggestions(parsed);
+    } catch (err) {
+      addToast(`❌ Suggestions failed: ${err.message}`, 'error', 5000);
+    } finally {
+      setSuggestionsLoading(false);
+    }
   };
 
   const runQuickTest = useCallback(async () => {
@@ -171,7 +262,7 @@ export default function PromptEditor() {
           <div className="tabs">
             <button className={`tab ${activeTab === 'editor' ? 'active' : ''}`} onClick={() => setActiveTab('editor')}>Editor</button>
             <button className={`tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>History</button>
-            <button className={`tab ${activeTab === 'testcases' ? 'active' : ''}`} onClick={() => setActiveTab('testcases')}>Test Cases</button>
+            <button className={`tab ${activeTab === 'suggestions' ? 'active' : ''}`} onClick={() => setActiveTab('suggestions')}>💡 Suggestions</button>
             <button className={`tab ${activeTab === 'quicktest' ? 'active' : ''}`} onClick={() => setActiveTab('quicktest')}>⚡ Quick Test</button>
           </div>
         </div>
@@ -190,6 +281,17 @@ export default function PromptEditor() {
               </button>
               <button className="btn btn-secondary btn-sm" onClick={() => addToast('Auto-formatted!', 'info')}>
                 ✨ Auto-format
+              </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={handleEnhance}
+                disabled={enhancing}
+                title="AI rewrites your prompt to be more detailed and precise"
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                {enhancing ? (
+                  <><span style={{ width: 12, height: 12, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />Enhancing…</>
+                ) : '🚀 Enhance'}
               </button>
             </div>
             <div className="flex items-center gap-3">
@@ -248,7 +350,18 @@ export default function PromptEditor() {
                       </div>
                     ))}
                   </div>
-                  <div className="flex justify-end mt-4">
+                  <div className="flex justify-end mt-4" style={{ gap: 8, display: 'flex' }}>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={handleAiConvert}
+                      disabled={aiConverting || !text.trim()}
+                      title="AI converts your current prompt into this framework format automatically"
+                      style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                    >
+                      {aiConverting ? (
+                        <><span style={{ width: 12, height: 12, border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />Converting…</>
+                      ) : '🤖 AI Convert'}
+                    </button>
                     <button className="btn btn-primary" onClick={applyFramework}>Generate Prompt</button>
                   </div>
                 </div>
@@ -407,6 +520,65 @@ export default function PromptEditor() {
                 >
                   {quickTestOutput}
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* AI Suggestions Panel */}
+        {activeTab === 'suggestions' && (
+          <div className={`${styles.versionPanel} card animate-fade-in`} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="section-header">
+              <div>
+                <div className="section-title">💡 AI Suggestions</div>
+                <div className="section-subtitle">AI analyses your prompt and suggests improvements</div>
+              </div>
+            </div>
+
+            <button
+              className="btn btn-primary"
+              onClick={handleGetSuggestions}
+              disabled={suggestionsLoading}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            >
+              {suggestionsLoading ? (
+                <><span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />Analysing…</>
+              ) : '💡 Get Suggestions'}
+            </button>
+
+            {suggestions && (
+              <>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-muted uppercase tracking-wider">What's Missing / Weak</label>
+                  <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px', fontSize: '0.83rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                    {suggestions.critique}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-muted uppercase tracking-wider">Suggested Prompt</label>
+                  <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--accent-blue)', borderRadius: 8, padding: '12px 14px', fontSize: '0.83rem', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: 1.7, maxHeight: 260, overflowY: 'auto' }}>
+                    {suggestions.suggestedPrompt}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => { setText(suggestions.suggestedPrompt); setActiveTab('editor'); addToast('✅ Suggested prompt loaded into editor!', 'success', 3500); }}
+                  >
+                    ✅ Use This Prompt
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setSuggestions(null)}>
+                    Dismiss
+                  </button>
+                </div>
+              </>
+            )}
+
+            {!suggestions && !suggestionsLoading && (
+              <div className="empty-state" style={{ padding: '24px 0' }}>
+                <div className="empty-state-icon">💡</div>
+                <div className="empty-state-title" style={{ fontSize: '0.9rem' }}>No suggestions yet</div>
+                <div className="empty-state-desc">Click "Get Suggestions" to have AI analyse your prompt and suggest improvements.</div>
               </div>
             )}
           </div>

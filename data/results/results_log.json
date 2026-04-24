@@ -1,4 +1,30 @@
-{
-  "version": "1.0.0",
-  "results": []
-}
+[
+  {
+    "promptId": "001",
+    "version": "v4",
+    "results": [
+      {
+        "input": "The global electric vehicle market grew 35% in 2025...",
+        "output": "• EV market surged 35% in 2025, fueled by battery cost reductions and charging network expansion\n• China dominates globally holding 60% market share in EV sales\n• European adoption accelerated at 42% YoY, marking fastest regional growth rate",
+        "R": 5,
+        "K": 4.6,
+        "L": 5,
+        "S": 3,
+        "C": 2,
+        "CPQS": 4.15,
+        "timestamp": "2026-04-24T11:54:29.922Z"
+      },
+      {
+        "input": "Researchers at MIT have developed...",
+        "output": "• MIT researchers achieved breakthrough 98% accuracy AI model for protein structure prediction\n• Innovation has potential to fundamentally disrupt pharmaceutical drug discovery workflows\n• Drug development timelines could compress dramatically from years down to months",
+        "R": 4,
+        "K": 4.35,
+        "L": 5,
+        "S": 4,
+        "C": 3,
+        "CPQS": 4.09,
+        "timestamp": "2026-04-24T11:54:29.923Z"
+      }
+    ]
+  }
+]
