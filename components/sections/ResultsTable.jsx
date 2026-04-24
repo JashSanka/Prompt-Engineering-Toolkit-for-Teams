@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '@/lib/store';
 import { calcK, calcL, calcCPQS, cpqsBand, cpqsBandClasses, cpqsTooltip } from '@/lib/cpqs';
+import { ENDPOINTS } from '@/lib/api';
 
 // ─── Star Rater Sub-component ─────────────────────────────────────────────────
 
@@ -151,7 +152,7 @@ export default function ResultsTable() {
     };
 
     try {
-      const res = await fetch('http://localhost:3001/results', {
+      const res = await fetch(ENDPOINTS.RESULTS, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(payload),

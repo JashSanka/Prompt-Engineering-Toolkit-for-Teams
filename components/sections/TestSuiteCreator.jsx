@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ENDPOINTS } from '@/lib/api';
 
 const TestSuiteCreator = ({ promptId = "default-prompt-id" }) => {
   // 1. State Management
@@ -75,7 +76,7 @@ const TestSuiteCreator = ({ promptId = "default-prompt-id" }) => {
       console.log('Sending POST /testsuite payload:', payload);
       
       // Simulated API Call
-      // const response = await fetch('/testsuite', {
+      // const response = await fetch(ENDPOINTS.TESTSUITE, {
       //   method: 'POST',
       //   headers: { 'Content-Type': 'application/json' },
       //   body: JSON.stringify(payload)
