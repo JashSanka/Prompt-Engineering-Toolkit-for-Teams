@@ -22,8 +22,17 @@ const PORT = process.env.PORT || 3001;
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 
-// Allow requests from the Vite dev server (default: localhost:5173)
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:3000'] }));
+// Allow requests from the Vite dev server and any Render-deployed frontend
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:5173', 'http://localhost:3000'];
+
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || ALLOWED_ORIGINS.some(o => origin.startsWith(o))) return cb(null, true);
+    cb(new Error(`CORS blocked: ${origin}`));
+  }
+}));
 app.use(express.json());
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
