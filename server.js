@@ -165,37 +165,53 @@ app.post('/execute', async (req, res) => {
 
 // ─── Static Files (Frontend) ──────────────────────────────────────────────────
 const distPath = path.resolve(__dirname, 'dist');
+console.log('[server] Serving static files from:', distPath);
+
+// Serve assets with a long cache time
+app.use('/assets', express.static(path.join(distPath, 'assets'), { maxAge: '1y' }));
 app.use(express.static(distPath));
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 
 app.get('/health', (_req, res) => {
-  let files = [];
-  try {
-    if (require('fs').existsSync(distPath)) {
-      files = require('fs').readdirSync(distPath);
-      if (files.includes('assets')) {
-        files = [...files, ...require('fs').readdirSync(path.join(distPath, 'assets')).map(f => 'assets/' + f)];
+  const fs = require('fs');
+  const getFiles = (dir, prefix = '') => {
+    let results = [];
+    if (!fs.existsSync(dir)) return [`${dir} DOES NOT EXIST`];
+    const list = fs.readdirSync(dir);
+    list.forEach(file => {
+      const pathName = path.join(dir, file);
+      const stat = fs.statSync(pathName);
+      if (stat && stat.isDirectory()) {
+        results = results.concat(getFiles(pathName, prefix + file + '/'));
+      } else {
+        results.push(prefix + file);
       }
-    }
-  } catch (e) { files = [e.message]; }
+    });
+    return results;
+  };
 
   res.json({
     status: 'ok',
-    mode:   process.env.GROQ_API_KEY ? 'real-ai' : 'mock-ai',
+    cwd: process.cwd(),
     distPath: distPath,
-    distExists: require('fs').existsSync(distPath),
-    filesFound: files
+    exists: fs.existsSync(distPath),
+    files: getFiles(distPath)
   });
 });
 
-// Handle React routing, return all requests to React app
+// Handle React routing
 app.get('*', (req, res) => {
+  // If the request looks like a file (has an extension), don't serve index.html
+  if (req.path.includes('.')) {
+    return res.status(404).send(`File not found: ${req.path}`);
+  }
+  
   const indexPath = path.join(distPath, 'index.html');
   if (require('fs').existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
-    res.status(404).send('Frontend build (dist/index.html) not found. Please check your build logs.');
+    res.status(404).send('Frontend build not found. Ensure "npm run build" ran successfully.');
   }
 });
 
