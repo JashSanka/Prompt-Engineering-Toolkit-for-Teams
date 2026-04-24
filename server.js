@@ -181,7 +181,7 @@ if (!require('fs').existsSync(distPath)) {
 }
 console.log('[server] Detected distPath:', distPath);
 
-// Manual Asset Handler (Nuclear Fix for MIME types and 500 errors)
+// Manual Asset Handler (Direct Stream Fix)
 app.get('/assets/:filename', (req, res) => {
   try {
     const fs = require('fs');
@@ -192,14 +192,11 @@ app.get('/assets/:filename', (req, res) => {
       const mimeTypes = { '.js': 'application/javascript', '.css': 'text/css' };
       if (mimeTypes[ext]) res.setHeader('Content-Type', mimeTypes[ext]);
       
-      return res.sendFile(filePath, (err) => {
-        if (err) {
-          console.error('[server] sendFile error:', err);
-          if (!res.headersSent) res.status(500).send(`File system error: ${err.message}`);
-        }
-      });
+      const stream = fs.createReadStream(filePath);
+      stream.on('error', (e) => res.status(500).send('Stream Error: ' + e.message));
+      return stream.pipe(res);
     }
-    res.status(404).send('Asset not found in path: ' + filePath);
+    res.status(404).send('Asset not found');
   } catch (err) {
     res.status(500).send(`Server Crash: ${err.message}`);
   }
