@@ -164,8 +164,22 @@ app.post('/execute', async (req, res) => {
 });
 
 // ─── Static Files (Frontend) ──────────────────────────────────────────────────
-const distPath = path.resolve(__dirname, 'dist');
-console.log('[server] Serving static files from:', distPath);
+// Try to find the dist folder (sometimes Vite puts it in different places on Render)
+let distPath = path.resolve(__dirname, 'dist');
+if (!require('fs').existsSync(distPath)) {
+  const possiblePaths = [
+    path.resolve(__dirname, 'client/dist'),
+    path.resolve(__dirname, 'frontend/dist'),
+    path.resolve(__dirname, '../dist')
+  ];
+  for (const p of possiblePaths) {
+    if (require('fs').existsSync(p)) {
+      distPath = p;
+      break;
+    }
+  }
+}
+console.log('[server] Detected distPath:', distPath);
 
 // Serve assets with a long cache time
 app.use('/assets', express.static(path.join(distPath, 'assets'), { maxAge: '1y' }));
