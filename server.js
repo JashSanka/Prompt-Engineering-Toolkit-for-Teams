@@ -183,15 +183,26 @@ console.log('[server] Detected distPath:', distPath);
 
 // Manual Asset Handler (Nuclear Fix for MIME types and 500 errors)
 app.get('/assets/:filename', (req, res) => {
-  const filePath = path.join(distPath, 'assets', req.params.filename);
-  const fs = require('fs');
-  if (fs.existsSync(filePath)) {
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes = { '.js': 'application/javascript', '.css': 'text/css' };
-    res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
-    return res.sendFile(filePath);
+  try {
+    const fs = require('fs');
+    const filePath = path.join(distPath, 'assets', req.params.filename);
+    
+    if (fs.existsSync(filePath)) {
+      const ext = path.extname(filePath).toLowerCase();
+      const mimeTypes = { '.js': 'application/javascript', '.css': 'text/css' };
+      if (mimeTypes[ext]) res.setHeader('Content-Type', mimeTypes[ext]);
+      
+      return res.sendFile(filePath, (err) => {
+        if (err) {
+          console.error('[server] sendFile error:', err);
+          if (!res.headersSent) res.status(500).send(`File system error: ${err.message}`);
+        }
+      });
+    }
+    res.status(404).send('Asset not found in path: ' + filePath);
+  } catch (err) {
+    res.status(500).send(`Server Crash: ${err.message}`);
   }
-  res.status(404).end();
 });
 app.use(express.static(distPath));
 
